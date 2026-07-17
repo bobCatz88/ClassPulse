@@ -1,0 +1,12 @@
+node_modules/
+.next/
+out/
+.env*
+!.env.example
+*.log
+coverage/
+*.tsbuildinfo
+.playwright-mcp/
+.DS_Store
+Thumbs.db
+ClassPulse_Docs_Bootstrap.zip
