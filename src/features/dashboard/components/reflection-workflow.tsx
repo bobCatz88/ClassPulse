@@ -5,13 +5,13 @@ import type { ReflectionAnalysis } from "@/features/reflections/types";
 import type { ClassRecord, ReflectionRecord } from "@/features/dashboard/types";
 import { createSupabaseBrowserClient } from "@/shared/lib/supabase/client";
 
-type Props = { classes: ClassRecord[]; initialClassId?: string; onClose: () => void; onSaved: (item: ReflectionRecord) => void };
+type Props = { classes: ClassRecord[]; initialClassId?: string; initialMode?: "voice" | "text"; onClose: () => void; onSaved: (item: ReflectionRecord) => void };
 type SpeechLike = { lang: string; continuous: boolean; interimResults: boolean; onresult: ((event: { results: ArrayLike<{ 0: { transcript: string }; isFinal: boolean }> }) => void) | null; onerror: (() => void) | null; start(): void; stop(): void };
 type SpeechCtor = new () => SpeechLike;
 const sample = "Hari ini saya ajar pecahan. Lebih kurang lapan murid masih keliru antara pengangka dan penyebut. Ahmad dan Ali kurang fokus. Sarah boleh jawab soalan mudah tetapi keliru apabila soalan menggunakan gambar.";
 
-export function ReflectionWorkflow({ classes, initialClassId, onClose, onSaved }: Props) {
-  const [stage, setStage] = useState<"record" | "review" | "diagnose" | "rescue">("record");
+export function ReflectionWorkflow({ classes, initialClassId, initialMode = "voice", onClose, onSaved }: Props) {
+  const [stage, setStage] = useState<"record" | "review" | "diagnose" | "rescue">(initialMode === "text" ? "review" : "record");
   const [classId, setClassId] = useState(initialClassId || classes[0]?.id || "");
   const [topic, setTopic] = useState("");
   const [transcript, setTranscript] = useState("");
@@ -153,9 +153,7 @@ export function ReflectionWorkflow({ classes, initialClassId, onClose, onSaved }
     <div className="workflow-steps">{["Rakam", "Semak", "Diagnosis", "Lesson Rescue"].map((label, index) => <span key={label} className={["record", "review", "diagnose", "rescue"].indexOf(stage) >= index ? "active" : ""}>{index + 1} {label}</span>)}</div>
     {stage === "record" && <div className="workflow-body centered-stage">
       <label className="form-field"><span>Kelas</span><select value={classId} onChange={(e) => setClassId(e.target.value)}><option value="">Pilih kelas</option>{classes.map((item) => <option key={item.id} value={item.id}>{item.class_name} · {item.subject}</option>)}</select></label>
-      <button className={`record-button ${recording ? "recording" : ""}`} onClick={recording ? stopRecording : startRecording}>{recording ? "■" : "●"}</button><b className="record-clock">{clock}</b>
-      <p>{recording ? "Sedang merakam dan menukar suara kepada teks…" : "Tekan untuk mula merakam 30–60 saat"}</p>
-      <button className="secondary-button" onClick={() => setStage("review")}>Taip refleksi</button>
+      <div className="input-method-grid"><div className="input-method-card"><span className="input-method-icon">●</span><h3>Rakam suara</h3><p>{recording ? "Sedang merakam dan menukar suara kepada teks…" : "Cakap ringkas selama 30–60 saat."}</p><button className={`record-button ${recording ? "recording" : ""}`} onClick={recording ? stopRecording : startRecording}>{recording ? "■" : "●"}</button><b className="record-clock">{clock}</b></div><button className="input-method-card input-method-card--text" onClick={() => setStage("review")}><span className="input-method-icon">Aa</span><h3>Taip refleksi</h3><p>Tulis sendiri apa yang berlaku dalam kelas tanpa menggunakan mikrofon.</p><strong>Mula menaip →</strong></button></div>
       <button className="text-button" onClick={() => { setTranscript(sample); setTopic("Pecahan"); setStage("review"); }}>Gunakan contoh refleksi</button>
     </div>}
     {stage === "review" && <div className="workflow-body">

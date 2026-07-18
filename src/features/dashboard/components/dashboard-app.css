@@ -78,3 +78,15 @@
   .workflow-header, .workflow-body { padding-left: 17px; padding-right: 17px; }.centered-stage { min-height: 370px; }
   .notification-popover { position: fixed; top: 70px; right: 12px; left: 80px; width: auto; }
 }
+.hero-actions { display: flex; flex-wrap: wrap; gap: 9px; }
+.light-button--ghost { color: #fff; border: 1px solid rgba(255,255,255,.42); background: rgba(255,255,255,.12); box-shadow: none; }
+.light-button--ghost:hover { background: rgba(255,255,255,.2); }
+.input-method-grid { width: min(660px, 100%); display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 22px auto 13px; }
+.input-method-card { min-height: 245px; display: flex; align-items: center; flex-direction: column; justify-content: center; color: #565a72; border: 1px solid #e2e1ec; border-radius: 15px; background: #fff; padding: 22px; box-shadow: 0 10px 28px rgba(48,44,91,.05); }
+.input-method-card--text { font: inherit; cursor: pointer; border-color: #ded9ff; background: linear-gradient(145deg,#faf9ff,#f2efff); }
+.input-method-card--text:hover { transform: translateY(-2px); border-color: #aaa0ed; box-shadow: 0 15px 34px rgba(75,61,156,.12); }
+.input-method-card h3 { margin: 9px 0 2px; font-size: 16px; }.input-method-card p { min-height: 38px; margin: 7px 0 !important; }
+.input-method-icon { width: 42px; height: 42px; display: grid; place-items: center; color: #fff; border-radius: 12px; background: linear-gradient(145deg,#8070e7,#5e4ec6); font-size: 14px; font-weight: 800; }
+.input-method-card--text strong { color: #6557c7; margin-top: 18px; font-size: 11px; }
+.input-method-card .record-button { width: 58px; height: 58px; margin: 10px 0 7px; border-width: 8px; font-size: 18px; }.input-method-card .record-clock { font-size: 12px; }
+@media (max-width: 620px) { .input-method-grid { grid-template-columns: 1fr; }.input-method-card { min-height: 190px; }.hero-actions { align-items: stretch; flex-direction: column; }.hero-actions .light-button { justify-content: center; } }

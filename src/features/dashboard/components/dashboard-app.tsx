@@ -21,6 +21,7 @@ export function DashboardApp({ initialData }: { initialData: DashboardData }) {
   const [reflections, setReflections] = useState(initialData.reflections);
   const [view, setView] = useState<View>("Ringkasan");
   const [reflectionClass, setReflectionClass] = useState<string | null>(null);
+  const [reflectionMode, setReflectionMode] = useState<"voice" | "text">("voice");
   const [showReflection, setShowReflection] = useState(false);
   const [classEditor, setClassEditor] = useState<ClassRecord | null | undefined>(undefined);
   const [detail, setDetail] = useState<ReflectionRecord | null>(null);
@@ -48,9 +49,9 @@ export function DashboardApp({ initialData }: { initialData: DashboardData }) {
     window.addEventListener("keydown", handleShortcut);
     return () => window.removeEventListener("keydown", handleShortcut);
   }, []);
-  function openReflection(classId?: string) {
+  function openReflection(classId?: string, mode: "voice" | "text" = "voice") {
     if (!classes.length) { setToast("Tambah kelas dahulu sebelum membuat refleksi."); setView("Kelas saya"); return; }
-    setReflectionClass(classId || classes[0].id); setShowReflection(true);
+    setReflectionClass(classId || classes[0].id); setReflectionMode(mode); setShowReflection(true);
   }
   function savedClass(item: ClassRecord) {
     setClasses((current) => current.some((row) => row.id === item.id) ? current.map((row) => row.id === item.id ? item : row) : [...current, item]);
@@ -110,7 +111,7 @@ export function DashboardApp({ initialData }: { initialData: DashboardData }) {
         {view === "Tetapan" && <SettingsView profile={profile} busy={profileBusy} onSave={saveProfile} />}
       </div>
     </section>
-    {showReflection && <ReflectionWorkflow classes={classes} initialClassId={reflectionClass || undefined} onClose={() => setShowReflection(false)} onSaved={savedReflection} />}
+    {showReflection && <ReflectionWorkflow classes={classes} initialClassId={reflectionClass || undefined} initialMode={reflectionMode} onClose={() => setShowReflection(false)} onSaved={savedReflection} />}
     {classEditor !== undefined && <ClassManager item={classEditor} onClose={() => setClassEditor(undefined)} onSaved={savedClass} onDeleted={deletedClass} />}
     {detail && <ReflectionDetail item={detail} className={classMap.get(detail.class_id)?.class_name || "Kelas"} onClose={() => setDetail(null)} onFollowUp={(plan) => setFollowUp(plan)} />}
     {followUp && <FollowUpModal plan={followUp} onClose={() => setFollowUp(null)} onSaved={savedOutcome} />}
@@ -119,9 +120,9 @@ export function DashboardApp({ initialData }: { initialData: DashboardData }) {
   </main>;
 }
 
-function Overview({ classes, reflections, successRate, pending, onReflect, onView, onDetail }: { classes: ClassRecord[]; reflections: ReflectionRecord[]; successRate: number; pending: number; onReflect: (id?: string) => void; onView: (view: View) => void; onDetail: (item: ReflectionRecord) => void }) {
+function Overview({ classes, reflections, successRate, pending, onReflect, onView, onDetail }: { classes: ClassRecord[]; reflections: ReflectionRecord[]; successRate: number; pending: number; onReflect: (id?: string, mode?: "voice" | "text") => void; onView: (view: View) => void; onDetail: (item: ReflectionRecord) => void }) {
   const recent = reflections.slice(0, 3);
-  return <><section className="hero-card"><div className="hero-card__copy"><span className="eyebrow eyebrow--light">RINGKASAN PENGAJARAN</span><h2>Satu refleksi kecil.<br /><em>Satu kelas yang lebih jelas.</em></h2><p>Rekod apa yang berlaku, sahkan analisis dan bawa Lesson Rescue ke kelas seterusnya.</p><button className="light-button" onClick={() => onReflect()}>Mulakan refleksi →</button></div><div className="hero-card__visual"><div className="orbit orbit--one" /><div className="orbit orbit--two" /><div className="hero-orb">●</div></div></section>
+  return <><section className="hero-card"><div className="hero-card__copy"><span className="eyebrow eyebrow--light">RINGKASAN PENGAJARAN</span><h2>Satu refleksi kecil.<br /><em>Satu kelas yang lebih jelas.</em></h2><p>Rekod apa yang berlaku, sahkan analisis dan bawa Lesson Rescue ke kelas seterusnya.</p><div className="hero-actions"><button className="light-button" onClick={() => onReflect(undefined, "voice")}>● Rakam suara</button><button className="light-button light-button--ghost" onClick={() => onReflect(undefined, "text")}>Aa Taip refleksi</button></div></div><div className="hero-card__visual"><div className="orbit orbit--one" /><div className="orbit orbit--two" /><div className="hero-orb">●</div></div></section>
     <section className="metrics-grid"><Metric label="Kelas aktif" value={classes.length} detail={`${classes.reduce((sum, item) => sum + item.students.length, 0)} murid`} /><Metric label="Refleksi disimpan" value={reflections.length} detail="Rekod keseluruhan" /><Metric label="Intervensi berkesan" value={`${successRate}%`} detail={`${pending} menunggu susulan`} /></section>
     <div className="section-grid"><section className="panel"><div className="panel-heading"><div><span className="eyebrow">KELAS SAYA</span><h3>Pilih kelas untuk refleksi</h3></div><button className="ghost-button" onClick={() => onView("Kelas saya")}>Lihat semua →</button></div>{classes.length ? <div className="class-list">{classes.slice(0, 4).map((item) => <button className="class-row simple-row" key={item.id} onClick={() => onReflect(item.id)}><span className="class-accent class-accent--purple" /><div className="class-main"><div><b>{item.class_name}</b><span>{item.subject} · {item.students.length} murid</span></div></div><span className="row-action">Refleksi →</span></button>)}</div> : <Empty title="Belum ada kelas" text="Tambah kelas untuk mula membuat refleksi." action="Tambah kelas" onClick={() => onView("Kelas saya")} />}</section>
     <section className="panel pulse-panel"><div className="panel-heading"><div><span className="eyebrow">NADI PENGAJARAN</span><h3>Tindakan seterusnya</h3></div></div><div className="pulse-quote"><div className="quote-mark">“</div><p>{pending ? `${pending} Lesson Rescue belum mempunyai rekod hasil. Lengkapkan susulan supaya strategi seterusnya menjadi lebih tepat.` : reflections.length ? "Semua Lesson Rescue sudah mempunyai rekod susulan. Teruskan refleksi untuk membina pola." : "Pola pengajaran akan muncul selepas beberapa refleksi disimpan."}</p></div><button className="insight-link" onClick={() => onView("Memori pengajaran")}>Buka memori pengajaran →</button></section></div>
