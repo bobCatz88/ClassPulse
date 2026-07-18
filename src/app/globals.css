@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "../features/dashboard/components/dashboard-app.css";
 
 :root {
   --ink: #1f2540;
