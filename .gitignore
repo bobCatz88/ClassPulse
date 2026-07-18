@@ -10,3 +10,6 @@ coverage/
 .DS_Store
 Thumbs.db
 ClassPulse_Docs_Bootstrap.zip
+
+# Local Netlify folder
+.netlify
