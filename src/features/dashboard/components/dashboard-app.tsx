@@ -5,6 +5,7 @@ import { SignOutButton } from "@/features/auth/components/sign-out-button";
 import { createSupabaseBrowserClient } from "@/shared/lib/supabase/client";
 import { localeLabels, type AppLocale } from "@/shared/i18n/locales";
 import { useLocale } from "@/shared/i18n/locale-provider";
+import { normalizeReflectionRecord } from "@/features/dashboard/types";
 import type { ClassPulse, ClassRecord, DashboardData, OutcomeRecord, ProfileRecord, ReflectionRecord, RescueRecord } from "@/features/dashboard/types";
 import { reflectionDayStreak, weeklyReflectionCount } from "@/features/reflections/streaks";
 import { ClassManager } from "./class-manager";
@@ -35,7 +36,7 @@ export function DashboardApp({ initialData }: { initialData: DashboardData }) {
   const [classes, setClasses] = useState(initialData.classes);
   const [pulses, setPulses] = useState(initialData.pulses);
   const [showPulse, setShowPulse] = useState(false);
-  const [reflections, setReflections] = useState(initialData.reflections);
+  const [reflections, setReflections] = useState(() => initialData.reflections.map(normalizeReflectionRecord));
   const { locale, setLocale, t } = useLocale();
   const [view, setView] = useState<View>("Ringkasan");
   const [reflectionClass, setReflectionClass] = useState<string | null>(null);
@@ -89,7 +90,7 @@ export function DashboardApp({ initialData }: { initialData: DashboardData }) {
     setToast("Kelas telah dipadam.");
   }
   function savedReflection(item: ReflectionRecord) {
-    setReflections((current) => [item, ...current]); setToast("Refleksi dan Lesson Rescue berjaya disimpan.");
+    setReflections((current) => [normalizeReflectionRecord(item), ...current]); setToast("Refleksi dan Lesson Rescue berjaya disimpan.");
   }
   function savedPulse(pulse: ClassPulse) {
     setPulses((current) => [pulse, ...current].slice(0, 7));
@@ -109,7 +110,7 @@ export function DashboardApp({ initialData }: { initialData: DashboardData }) {
       const response = await fetch(`/api/reflections/history?before=${encodeURIComponent(lastReflection.recorded_at)}`);
       if (!response.ok) throw new Error("Tidak dapat memuatkan sejarah refleksi.");
       const result = await response.json() as { reflections: ReflectionRecord[]; hasMore: boolean };
-      setReflections((current) => [...current, ...result.reflections]);
+      setReflections((current) => [...current, ...result.reflections.map(normalizeReflectionRecord)]);
       setReflectionHasMore(result.hasMore);
     } catch (error) {
       setToast(error instanceof Error ? error.message : "Tidak dapat memuatkan sejarah refleksi.");

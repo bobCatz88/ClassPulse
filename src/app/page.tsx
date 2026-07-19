@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 
 import { DashboardApp } from "@/features/dashboard/components/dashboard-app";
-import type { DashboardData } from "@/features/dashboard/types";
+import { normalizeReflectionRecord, type DashboardData, type ReflectionRecord } from "@/features/dashboard/types";
 import { createSupabaseServerClient } from "@/server/supabase/server";
 import { createRequestId, errorLogMeta, logger } from "@/server/logging/logger";
 import { LocaleProvider } from "@/shared/i18n/locale-provider";
@@ -23,7 +23,7 @@ export default async function Home() {
     if (result.error) logger.error("Dashboard query gagal", { event: "dashboard.query_failed", requestId, source, ...errorLogMeta(result.error) });
   }
   const profile = profileResult.data ?? { id: user.id, display_name: user.user_metadata.display_name || user.email?.split("@")[0] || "Guru", school_name: null, primary_subject: null, preferred_locale: "ms-MY", timezone: "Asia/Kuala_Lumpur", weekly_reflection_goal: 3 };
-  const initialReflections = reflectionsResult.data ?? [];
+  const initialReflections = (reflectionsResult.data ?? []).map((item) => normalizeReflectionRecord(item as ReflectionRecord));
   const initialData = { profile, classes: classesResult.data ?? [], reflections: initialReflections.slice(0, 25), reflectionHasMore: initialReflections.length > 25, pulses: pulsesResult.data ?? [] } as unknown as DashboardData;
   return <LocaleProvider initialLocale={profile.preferred_locale === "en" ? "en" : "ms-MY"}><DashboardApp initialData={initialData} /></LocaleProvider>;
 }

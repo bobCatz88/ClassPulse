@@ -10,3 +10,17 @@ export type ReflectionRecord = { id: string; class_id: string; transcript: strin
 export type ClassPulse = { id: string; class_id: string; understanding: "strong" | "mixed" | "needs_support"; engagement: "high" | "mixed" | "low"; energy_level: "high" | "normal" | "low"; note: string | null; observed_at: string };
 export type ProfileRecord = { id: string; display_name: string; school_name: string | null; primary_subject: string | null; preferred_locale: AppLocale; timezone: string; weekly_reflection_goal: 3 | 5 | 7 };
 export type DashboardData = { profile: ProfileRecord; classes: ClassRecord[]; reflections: ReflectionRecord[]; reflectionHasMore: boolean; pulses: ClassPulse[] };
+export function asArray<T>(value: T | T[] | null | undefined): T[] {
+  return Array.isArray(value) ? value : value ? [value] : [];
+}
+
+export function normalizeReflectionRecord(record: ReflectionRecord): ReflectionRecord {
+  return {
+    ...record,
+    diagnostic_answers: asArray(record.diagnostic_answers),
+    lesson_rescues: asArray(record.lesson_rescues).map((plan) => ({
+      ...plan,
+      intervention_outcomes: asArray(plan.intervention_outcomes),
+    })),
+  };
+}
