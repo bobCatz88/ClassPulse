@@ -7,6 +7,7 @@ export default defineConfig([
   ...nextTypescript,
   globalIgnores([
     ".netlify/**",
+    ".netlify-publish/**",
     ".next/**",
     "out/**",
     "coverage/**",

@@ -14,12 +14,21 @@ export function asArray<T>(value: T | T[] | null | undefined): T[] {
   return Array.isArray(value) ? value : value ? [value] : [];
 }
 
+export function normalizeClassRecord(record: ClassRecord): ClassRecord {
+  return { ...record, students: asArray(record.students) };
+}
+
 export function normalizeReflectionRecord(record: ReflectionRecord): ReflectionRecord {
+  const analysis = (record.analysis && typeof record.analysis === "object" ? record.analysis : {}) as ReflectionAnalysis;
   return {
     ...record,
+    analysis: { ...analysis, learningIssues: asArray(analysis.learningIssues), diagnosticQuestions: asArray(analysis.diagnosticQuestions) } as ReflectionAnalysis,
     diagnostic_answers: asArray(record.diagnostic_answers),
     lesson_rescues: asArray(record.lesson_rescues).map((plan) => ({
       ...plan,
+      materials: asArray(plan.materials),
+      steps: asArray(plan.steps),
+      exit_questions: asArray(plan.exit_questions),
       intervention_outcomes: asArray(plan.intervention_outcomes),
     })),
   };
