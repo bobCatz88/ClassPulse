@@ -70,3 +70,22 @@ button { cursor: pointer; }
 .error-card h1 { margin: 0; font-size: 26px; line-height: 1.15; letter-spacing: -.04em; }
 .error-card p { color: var(--muted); margin: 0; font-size: 12px; line-height: 1.6; }
 .error-card code { overflow-wrap: anywhere; color: #6a5ec9; border-radius: 8px; background: #f3f1ff; padding: 9px 10px; font-size: 11px; }
+
+/* Visual refresh: editorial classroom artwork and warmer interactive surfaces */
+.hero-card { min-height: 286px; background: linear-gradient(105deg, #2e276c 0%, #5545bd 46%, #8a77ed 100%); }
+.hero-card::before { content: ""; position: absolute; inset: 0; background: linear-gradient(90deg, rgba(34,27,90,.95) 0%, rgba(49,38,125,.83) 43%, rgba(82,67,180,.12) 72%); z-index: 1; }
+.hero-card__copy { width: 54%; padding: 38px 40px; }
+.hero-card__copy .eyebrow { color: #c9c4ff; }
+.hero-card h2 { font-size: 33px; max-width: 420px; }
+.hero-card p { color: #e2ddff; font-size: 13px; }
+.hero-card__visual { position: absolute; inset: 0 0 0 auto; width: 63%; height: 100%; background: url('/images/teacher-reflection-hero.png') center right / cover no-repeat; }
+.hero-card__visual::after { content: ""; position: absolute; inset: 0; background: linear-gradient(90deg, #5444b6 0%, transparent 38%); }
+.hero-orb, .orbit, .hero-spark, .hero-note { display: none; }
+.metric-card { overflow: hidden; box-shadow: 0 10px 24px rgba(52, 52, 98, .04); transition: transform .2s ease, box-shadow .2s ease; }
+.metric-card:hover, .recent-card:hover, .panel:hover { transform: translateY(-2px); box-shadow: 0 14px 30px rgba(53, 46, 114, .09); }
+.metric-card::after { content: ""; position: absolute; width: 88px; height: 88px; right: -30px; bottom: -47px; border-radius: 50%; background: #f0edff; }
+.metric-card:nth-child(2)::after { background: #fff0e8; }.metric-card:nth-child(3)::after { background: #e8f7f0; }
+.recent-card { transition: transform .2s ease, box-shadow .2s ease; }
+.class-card-full { position: relative; overflow: hidden; background: linear-gradient(145deg, #fff, #faf9ff); }
+.class-card-full::after { content: "✦"; position: absolute; right: 18px; top: 14px; color: #ded9ff; font-size: 30px; }
+@media (max-width: 620px) { .hero-card { min-height: 360px; }.hero-card__copy { width: 100%; padding: 28px 24px; }.hero-card__visual { width: 100%; opacity: .48; }.hero-card::before { background: linear-gradient(90deg, rgba(35,28,98,.95), rgba(62,49,148,.63)); }.hero-card h2 { font-size: 29px; } }
