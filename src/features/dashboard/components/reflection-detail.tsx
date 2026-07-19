@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import type { OutcomeRecord, ReflectionRecord, RescueRecord } from "@/features/dashboard/types";
+import { formatLessonRescueForExport } from "@/features/exports/lesson-rescue-export";
 import { createSupabaseBrowserClient } from "@/shared/lib/supabase/client";
 
 const outcomeLabels = {
@@ -11,18 +12,24 @@ const outcomeLabels = {
   not_implemented: "Belum dilaksanakan",
 } as const;
 
-export function ReflectionDetail({ item, className, onClose, onFollowUp }: { item: ReflectionRecord; className: string; onClose: () => void; onFollowUp: (plan: RescueRecord) => void }) {
+export function ReflectionDetail({ item, className, onClose, onFollowUp, onTeach, onExitTicket, onSchedule, onResource, onCreateStudentFollowUp }: { item: ReflectionRecord; className: string; onClose: () => void; onFollowUp: (plan: RescueRecord) => void; onTeach: (plan: RescueRecord) => void; onExitTicket: (plan: RescueRecord) => void; onSchedule: (plan: RescueRecord) => void; onResource: (plan: RescueRecord) => void; onCreateStudentFollowUp: (item: ReflectionRecord) => void }) {
   const plan = item.lesson_rescues[0];
+  const [notice, setNotice] = useState("");
   async function copyPlan() {
     if (!plan) return;
-    const text = [plan.title, plan.objective, ...plan.steps.map((step, index) => `${index + 1}. ${step.title} (${step.durationMinutes} minit): ${step.instruction}`), `Penerangan alternatif: ${plan.alternative_explanation || "-"}`, ...plan.exit_questions.map((q) => `Soalan keluar: ${q}`)].join("\n");
-    await navigator.clipboard.writeText(text);
+    await navigator.clipboard.writeText(formatLessonRescueForExport({ className, reflection: item, plan }));
+    setNotice("Pelan disalin tanpa nama murid.");
+  }
+  function printPlan() {
+    setNotice("Pilih Save as PDF dalam dialog cetak untuk eksport PDF.");
+    window.print();
   }
   return <div className="modal-backdrop"><section className="workflow-modal detail-modal" role="dialog" aria-modal="true">
     <header className="workflow-header"><div><span className="eyebrow">{className} · {new Date(item.recorded_at).toLocaleDateString("ms-MY")}</span><h2>{item.topic || item.subject || "Refleksi pengajaran"}</h2></div><button className="icon-button" onClick={onClose}>×</button></header>
     <div className="workflow-body"><section className="detail-section"><span className="eyebrow">TRANSKRIP</span><p>{item.transcript}</p></section><section className="detail-section accent"><span className="eyebrow">RINGKASAN</span><p>{item.class_summary}</p></section>
       <div className="result-grid"><section className="result-card"><span className="eyebrow">ISU DIKENAL PASTI</span>{item.analysis.learningIssues?.map((issue) => <div className="issue-line" key={issue.title}><b>{issue.title}</b><p>{issue.description}</p><small>Keyakinan: {issue.confidence}</small></div>)}</section>
-      <section className="result-card accent"><span className="eyebrow">LESSON RESCUE</span>{plan ? <><h3>{plan.title}</h3><p>{plan.objective}</p><ol>{plan.steps.map((step) => <li key={step.title}><b>{step.title}</b> — {step.instruction}</li>)}</ol><div className="modal-actions compact"><button className="secondary-button" onClick={copyPlan}>Salin pelan</button><button className="primary-button" onClick={() => onFollowUp(plan)}>Rekod hasil</button></div></> : <p>Tiada pelan disimpan.</p>}</section></div>
+      <section className="result-card accent"><span className="eyebrow">LESSON RESCUE</span>{plan ? <><h3>{plan.title}</h3><p>{plan.objective}</p><ol>{plan.steps.map((step) => <li key={step.title}><b>{step.title}</b> — {step.instruction}</li>)}</ol><div className="modal-actions compact"><button className="secondary-button" onClick={copyPlan}>Salin pelan</button><button className="secondary-button" onClick={printPlan}>Eksport PDF</button><button className="secondary-button" onClick={() => onCreateStudentFollowUp(item)}>Tambah susulan murid</button><button className="secondary-button" onClick={() => onSchedule(plan)}>Jadualkan</button><button className="secondary-button" onClick={() => onTeach(plan)}>Mod mengajar</button><button className="secondary-button" onClick={() => onExitTicket(plan)}>Exit Ticket</button><button className="secondary-button" onClick={() => onResource(plan)}>Bahan</button><button className="primary-button" onClick={() => onFollowUp(plan)}>Rekod hasil</button></div></> : <p>Tiada pelan disimpan.</p>}</section></div>
+      {notice && <p className="workflow-notice inline">{notice}</p>}
       {plan?.intervention_outcomes.length ? <section className="detail-section"><span className="eyebrow">SEJARAH SUSULAN</span>{plan.intervention_outcomes.map((outcome) => <div className="outcome-line" key={outcome.id}><b>{outcomeLabels[outcome.outcome]}</b><span>{new Date(outcome.intervention_date).toLocaleDateString("ms-MY")}</span><p>{outcome.notes || "Tiada nota."}</p></div>)}</section> : null}
     </div>
   </section></div>;

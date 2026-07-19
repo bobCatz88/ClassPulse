@@ -1,3 +1,5 @@
+import type { AppLocale } from "@/shared/i18n/locales";
+
 export type AnalysisConfidence = "high" | "medium" | "low";
 
 export type ReflectionObservation = {
@@ -50,6 +52,7 @@ export type ReflectionAnalysis = {
 export type AnalyzeRequest = {
   classId: string;
   transcript: string;
+  locale?: AppLocale;
 };
 
 export type AnalyzeReflectionRequest = AnalyzeRequest;

@@ -1,0 +1,19 @@
+"use client";
+
+import { useState } from "react";
+
+import type { RescueRecord } from "@/features/dashboard/types";
+import { createSupabaseBrowserClient } from "@/shared/lib/supabase/client";
+
+type Question = { id: string; type: string; prompt: string; options: string[] };
+export function ExitTicketModal({ plan, classId, onClose }: { plan: RescueRecord; classId: string; onClose: () => void }) {
+  const [format, setFormat] = useState<"objective" | "short" | "mixed">("mixed");
+  const [questions, setQuestions] = useState<Question[]>([]);
+  const [answerKey, setAnswerKey] = useState<unknown[]>([]);
+  const [busy, setBusy] = useState(false);
+  const [notice, setNotice] = useState("");
+  async function generate() { setBusy(true); setNotice(""); try { const response = await fetch("/api/exit-tickets/generate", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ classId, lessonRescueId: plan.id, format }) }); const result = await response.json() as { questions?: Question[]; answerKey?: unknown[]; error?: string }; if (!response.ok || !result.questions) throw new Error(result.error || "Tidak dapat menjana Exit Ticket."); setQuestions(result.questions); setAnswerKey(result.answerKey || []); } catch (error) { setNotice(error instanceof Error ? error.message : "Tidak dapat menjana Exit Ticket."); } finally { setBusy(false); } }
+  async function save() { const supabase = createSupabaseBrowserClient(); const { data: auth } = await supabase.auth.getUser(); if (!auth.user) { setNotice("Sila log masuk semula."); return; } const { error } = await supabase.from("exit_tickets").insert({ teacher_id: auth.user.id, class_id: classId, lesson_rescue_id: plan.id, question_format: format, questions, answer_key: answerKey, confirmed: true }); if (error) { setNotice("Exit Ticket tidak dapat disimpan."); return; } onClose(); }
+  async function copy() { await navigator.clipboard.writeText(questions.map((question, index) => `${index + 1}. ${question.prompt}${question.options.length ? ` (${question.options.join(" / ")})` : ""}`).join("\n")); setNotice("Exit Ticket disalin."); }
+  return <div className="modal-backdrop"><section className="workflow-modal" role="dialog" aria-modal="true"><header className="workflow-header"><div><span className="eyebrow">EXIT TICKET</span><h2>Semak kefahaman murid</h2></div><button className="icon-button" onClick={onClose}>×</button></header><div className="workflow-body"><label className="form-field"><span>Format</span><select value={format} onChange={(event) => setFormat(event.target.value as typeof format)}><option value="mixed">Campuran</option><option value="objective">Objektif</option><option value="short">Respons pendek</option></select></label>{questions.length ? <div className="question-list">{questions.map((question, index) => <label className="form-field" key={question.id}><span>{index + 1}. {question.type === "confidence" ? "Keyakinan" : question.type}</span><textarea rows={2} value={question.prompt} onChange={(event) => setQuestions((current) => current.map((item) => item.id === question.id ? { ...item, prompt: event.target.value } : item))} />{question.options.length ? <small>{question.options.join(" · ")}</small> : null}</label>)}</div> : <p className="muted-copy">Jana soalan berasaskan Lesson Rescue, kemudian semak dan edit sebelum simpan.</p>}<div className="modal-actions"><button className="secondary-button" onClick={() => void generate()} disabled={busy}>{busy ? "Menjana…" : questions.length ? "Jana semula" : "Jana Exit Ticket"}</button>{questions.length ? <><button className="secondary-button" onClick={() => void copy()}>Salin</button><button className="secondary-button" onClick={() => window.print()}>Cetak</button><button className="primary-button" onClick={() => void save()}>Simpan Exit Ticket</button></> : null}</div>{notice && <p className="workflow-notice">{notice}</p>}</div></section></div>;
+}

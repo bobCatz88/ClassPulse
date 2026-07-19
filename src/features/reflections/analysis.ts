@@ -172,6 +172,10 @@ export function validateAnalyzeRequest(
 export function createDemoReflectionAnalysis(
   request: AnalyzeRequest,
 ): ReflectionAnalysis {
+  if (request.locale === "en") {
+    return createEnglishDemoReflectionAnalysis(request);
+  }
+
   const evidence = truncate(request.transcript, 220);
   const lowerTranscript = request.transcript.toLocaleLowerCase("ms-MY");
 
@@ -248,6 +252,77 @@ export function createDemoReflectionAnalysis(
     learningIssues,
     diagnosticQuestions: buildDemoQuestions(),
     lessonRescue: buildDemoLessonRescue(),
+  };
+}
+
+function createEnglishDemoReflectionAnalysis(
+  request: AnalyzeRequest,
+): ReflectionAnalysis {
+  const evidence = truncate(request.transcript, 220);
+  const lowerTranscript = request.transcript.toLocaleLowerCase("en");
+  const explicitlyUnclear = /not\s+(?:clear|understood)|confus|struggl|difficult|uncertain/.test(lowerTranscript);
+  const participationConcern = /quiet|silent|not\s+answering|less\s+(?:active|engaged)|not\s+raising/.test(lowerTranscript);
+
+  const observations: ReflectionObservation[] = [{
+    text: explicitlyUnclear
+      ? "The teacher reflection mentions signs that student understanding is not yet secure."
+      : "The teacher recorded an observation after the teaching session.",
+    evidence,
+    confidence: explicitlyUnclear ? "high" : "medium",
+  }];
+  if (participationConcern) {
+    observations.push({
+      text: "The reflection mentions limited student participation or responses.",
+      evidence,
+      confidence: "high",
+    });
+  }
+
+  const learningIssues: LearningIssue[] = [explicitlyUnclear
+    ? {
+        title: "Concept understanding needs strengthening",
+        description: "Identify the specific misconception before choosing a reteaching approach. The teacher should confirm this finding.",
+        evidence,
+        confidence: "medium",
+      }
+    : {
+        title: "Level of understanding is not yet confirmed",
+        description: "The transcript does not provide enough evidence to identify a specific concept. Use a quick check at the start of the next lesson.",
+        evidence,
+        confidence: "low",
+      }];
+
+  if (participationConcern) {
+    learningIssues.push({
+      title: "Student participation needs checking",
+      description: "Limited responses do not necessarily mean that students do not understand. Check confidence, instructions and understanding with an easy response method.",
+      evidence,
+      confidence: "medium",
+    });
+  }
+
+  return {
+    summary: `Teacher reflection recorded for review: “${truncate(request.transcript, 260)}” The teacher should confirm this initial finding before using it.`,
+    observations,
+    learningIssues,
+    diagnosticQuestions: [
+      { id: "evidence-of-understanding", question: "What is the clearest evidence of student understanding?", options: ["Student verbal responses", "Practice work or worksheet", "Responses during an activity", "Not sure"], allowUnsure: true },
+      { id: "affected-group", question: "Who needs the most support next?", options: ["Most of the class", "One small group", "A few individuals", "Not sure"], allowUnsure: true },
+      { id: "main-barrier", question: "What is the most likely barrier based on your evidence?", options: ["Core concept is not secure", "Instructions or examples were unclear", "Not enough practice time", "Not sure"], allowUnsure: true },
+    ],
+    lessonRescue: {
+      durationMinutes: 10,
+      objective: "Identify the main misconception and address it with a brief explanation and active responses.",
+      materials: ["Whiteboard or one simple slide", "Small paper slips or a digital response form"],
+      steps: [
+        { title: "Quick check", instruction: "Show one foundational question and ask every student to choose an answer at the same time without naming anyone.", durationMinutes: 2 },
+        { title: "Think and discuss", instruction: "Students explain their choice to a partner. Listen for two repeated misconception patterns.", durationMinutes: 3 },
+        { title: "Reteach", instruction: "Use one everyday example, followed by one example and one non-example.", durationMinutes: 3 },
+        { title: "Exit ticket", instruction: "Students answer one application question and name one part that is still unclear.", durationMinutes: 2 },
+      ],
+      alternativeExplanation: "Use a map-and-destination analogy: the concept is the destination, while each solution step is a turn selected using one clue.",
+      exitQuestions: ["What is the main idea of this lesson in one sentence?", "Why is this answer or step correct?", "Which part needs another example?"],
+    },
   };
 }
 

@@ -50,7 +50,7 @@ Pilih kelas
 - OpenAI Audio API untuk transkripsi
 - OpenAI Responses API untuk analisis berstruktur
 - Pengesahan input berstruktur pada route pelayan
-- Vercel untuk deployment
+- Netlify untuk deployment
 
 Seni bina ringkas:
 
@@ -87,7 +87,7 @@ Sediakan perkara berikut sebelum menjalankan projek:
 
 3. Isi nilai yang diperlukan dalam `.env.local`.
 
-4. Jalankan migrasi [skema awal](./supabase/migrations/202607170001_initial_schema.sql) melalui **Supabase Dashboard → SQL Editor**. Migrasi ini mencipta jadual, indeks, profil pengguna automatik dan polisi Row Level Security.
+4. Jalankan migrasi mengikut turutan melalui **Supabase Dashboard → SQL Editor**, bermula dengan [skema awal](./supabase/migrations/202607170001_initial_schema.sql), kemudian semua fail migrasi yang lebih baharu. Migrasi mencipta jadual, indeks, profil pengguna automatik dan polisi Row Level Security.
 
 5. Dalam **Supabase Dashboard → Authentication → URL Configuration**, tetapkan Site URL kepada `http://localhost:3000` untuk pembangunan dan tambah `http://localhost:3000/auth/callback` sebagai Redirect URL.
 
@@ -192,13 +192,14 @@ Selain ujian automatik, uji keseluruhan aliran pada Chrome desktop, Microsoft Ed
 
 ## Deployment
 
-Deployment yang dicadangkan ialah Vercel:
+Deployment production menggunakan Netlify:
 
-1. push repository ke GitHub;
-2. import repository ke Vercel;
-3. tetapkan semua pemboleh ubah persekitaran;
+1. push repository ke GitHub dan sambungkan branch `main` kepada site Netlify;
+2. tetapkan pemboleh ubah persekitaran public Supabase serta `OPENAI_API_KEY` di Netlify;
+3. jalankan migrasi Supabase sebagai langkah berasingan sebelum deploy yang menggunakan skema baharu;
 4. gunakan projek Supabase berasingan untuk staging dan production jika boleh;
-5. deploy dan uji semula rakaman, transkripsi, analisis, simpanan serta paparan telefon.
+5. semak Netlify Deploy Preview bagi setiap pull request;
+6. deploy production dan uji semula login, analisis, simpanan serta paparan telefon.
 
 Tanpa `OPENAI_API_KEY`, route analisis menggunakan mod demo deterministik supaya aliran UI boleh diuji secara lokal. Gunakan data rekaan pada persekitaran demo. Jangan masukkan kunci rahsia ke dalam repository atau tangkapan skrin.
 

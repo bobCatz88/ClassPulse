@@ -8,6 +8,8 @@ coverage/
 *.tsbuildinfo
 .playwright-mcp/
 .DS_Store
+test-results/
+supabase/.temp/
 Thumbs.db
 ClassPulse_Docs_Bootstrap.zip
 

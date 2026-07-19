@@ -1,0 +1,13 @@
+.follow-up-form { margin: 0 auto 18px; max-width: 760px; padding: 20px; }
+.follow-up-form h3 { margin: 0 0 4px; }
+.follow-up-filters { display: flex; flex-wrap: wrap; gap: 10px; margin: 0 0 18px; }
+.follow-up-filters label { display: grid; gap: 5px; color: var(--muted, #687078); font-size: 11px; font-weight: 700; }
+.follow-up-filters select { min-width: 135px; border: 1px solid var(--line, #e4e5ed); border-radius: 8px; background: #fff; padding: 8px; color: inherit; }
+.follow-up-board { display: grid; grid-template-columns: repeat(4, minmax(190px, 1fr)); gap: 12px; overflow-x: auto; }
+.follow-up-column { min-height: 210px; padding: 12px; border: 1px solid var(--line, #e4e5ed); border-radius: 14px; background: #f8f8fc; }
+.follow-up-column h3 { margin: 0 0 10px; font-size: 13px; }
+.follow-up-column .memory-card { display: grid; gap: 8px; margin-bottom: 10px; padding: 13px; }
+.follow-up-column .memory-card h4, .follow-up-column .memory-card p { margin: 0; }
+.follow-up-column .memory-card small { color: var(--muted, #687078); }
+.follow-up-column .memory-card select { width: 100%; border: 1px solid var(--line, #e4e5ed); border-radius: 7px; padding: 7px; }
+@media (max-width: 760px) { .follow-up-board { grid-template-columns: repeat(4, 230px); } }

@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { DashboardApp } from "@/features/dashboard/components/dashboard-app";
 import type { DashboardData } from "@/features/dashboard/types";
 import { createSupabaseServerClient } from "@/server/supabase/server";
+import { LocaleProvider } from "@/shared/i18n/locale-provider";
 
 export default async function Home() {
   const supabase = await createSupabaseServerClient();
@@ -10,12 +11,14 @@ export default async function Home() {
 
   if (!user) redirect("/login");
 
-  const [profileResult, classesResult, reflectionsResult] = await Promise.all([
-    supabase.from("profiles").select("id, display_name, school_name, primary_subject").eq("id", user.id).maybeSingle(),
+  const [profileResult, classesResult, reflectionsResult, pulsesResult] = await Promise.all([
+    supabase.from("profiles").select("id, display_name, school_name, primary_subject, preferred_locale, timezone, weekly_reflection_goal").eq("id", user.id).maybeSingle(),
     supabase.from("classes").select("id, class_name, year_level, subject, created_at, students(id, display_name, student_code, active)").order("created_at", { ascending: true }),
-    supabase.from("reflections").select("id, class_id, transcript, subject, topic, class_summary, analysis, status, recorded_at, diagnostic_answers(id, question_id, question, answer), lesson_rescues(id, title, duration_minutes, objective, materials, steps, alternative_explanation, exit_questions, confirmed, intervention_outcomes(id, outcome, notes, remaining_student_count, intervention_date))").order("recorded_at", { ascending: false }),
+    supabase.from("reflections").select("id, class_id, transcript, subject, topic, class_summary, analysis, status, recorded_at, diagnostic_answers(id, question_id, question, answer), lesson_rescues(id, title, duration_minutes, objective, materials, steps, alternative_explanation, exit_questions, confirmed, intervention_outcomes(id, outcome, notes, remaining_student_count, intervention_date))").order("recorded_at", { ascending: false }).range(0, 25),
+    supabase.from("class_pulses").select("id, class_id, understanding, engagement, energy_level, note, observed_at").order("observed_at", { ascending: false }).limit(7),
   ]);
-  const profile = profileResult.data ?? { id: user.id, display_name: user.user_metadata.display_name || user.email?.split("@")[0] || "Guru", school_name: null, primary_subject: null };
-  const initialData = { profile, classes: classesResult.data ?? [], reflections: reflectionsResult.data ?? [] } as unknown as DashboardData;
-  return <DashboardApp initialData={initialData} />;
+  const profile = profileResult.data ?? { id: user.id, display_name: user.user_metadata.display_name || user.email?.split("@")[0] || "Guru", school_name: null, primary_subject: null, preferred_locale: "ms-MY", timezone: "Asia/Kuala_Lumpur", weekly_reflection_goal: 3 };
+  const initialReflections = reflectionsResult.data ?? [];
+  const initialData = { profile, classes: classesResult.data ?? [], reflections: initialReflections.slice(0, 25), reflectionHasMore: initialReflections.length > 25, pulses: pulsesResult.data ?? [] } as unknown as DashboardData;
+  return <LocaleProvider initialLocale={profile.preferred_locale === "en" ? "en" : "ms-MY"}><DashboardApp initialData={initialData} /></LocaleProvider>;
 }

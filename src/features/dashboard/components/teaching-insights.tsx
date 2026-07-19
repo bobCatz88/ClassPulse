@@ -1,0 +1,5 @@
+"use client";
+import { useState } from "react";
+import type { ReflectionRecord } from "@/features/dashboard/types";
+import { repeatedLearningIssues } from "@/features/analytics/insights";
+export function TeachingInsights({ reflections }: { reflections: ReflectionRecord[] }) { const [dismissed,setDismissed]=useState<string[]>([]); const insights=repeatedLearningIssues(reflections).filter((item)=>!dismissed.includes(item.title)); return <section className="panel"><div className="panel-heading"><div><span className="eyebrow">CORAK BERASASKAN BUKTI</span><h3>Class Memory</h3></div></div>{insights.length ? <div className="class-list">{insights.map((insight) => <div className="class-row simple-row" key={insight.title}><span className="class-accent class-accent--purple" /><div className="class-main"><div><b>{insight.title}</b><span>{insight.count} refleksi menyokong corak ini</span></div></div><button className="row-action" onClick={()=>setDismissed((items)=>[...items,insight.title])}>Tolak</button></div>)}</div> : <p className="muted-copy">Corak akan dipaparkan selepas sekurang-kurangnya tiga rekod bukti.</p>}</section>; }

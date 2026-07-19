@@ -2,19 +2,33 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { ReflectionAnalysis } from "@/features/reflections/types";
-import type { ClassRecord, ReflectionRecord } from "@/features/dashboard/types";
-import { createSupabaseBrowserClient } from "@/shared/lib/supabase/client";
+import { speechLocale, type AppLocale } from "@/shared/i18n/locales";
+import { reflectionTemplates } from "@/features/reflections/reflection-templates";
+import type { ClassPulse, ClassRecord, ReflectionRecord } from "@/features/dashboard/types";
 
-type Props = { classes: ClassRecord[]; initialClassId?: string; initialMode?: "voice" | "text"; onClose: () => void; onSaved: (item: ReflectionRecord) => void };
+import { createSupabaseBrowserClient } from "@/shared/lib/supabase/client";
+type Props = { classes: ClassRecord[]; locale: AppLocale; initialClassId?: string; initialMode?: "voice" | "text"; onClose: () => void; onSaved: (item: ReflectionRecord) => void; onPulseSaved: (item: ClassPulse) => void };
 type SpeechLike = { lang: string; continuous: boolean; interimResults: boolean; onresult: ((event: { results: ArrayLike<{ 0: { transcript: string }; isFinal: boolean }> }) => void) | null; onerror: (() => void) | null; start(): void; stop(): void };
 type SpeechCtor = new () => SpeechLike;
 const sample = "Hari ini saya ajar pecahan. Lebih kurang lapan murid masih keliru antara pengangka dan penyebut. Ahmad dan Ali kurang fokus. Sarah boleh jawab soalan mudah tetapi keliru apabila soalan menggunakan gambar.";
+const draftKey = "classpulse.reflectionDraft.v1";
+function readDraft() {
+  if (typeof window === "undefined") return { classId: "", topic: "", transcript: "" };
+  try {
+    const saved = localStorage.getItem(draftKey);
+    return saved ? JSON.parse(saved) as { classId?: string; topic?: string; transcript?: string } : { classId: "", topic: "", transcript: "" };
+  } catch {
+    localStorage.removeItem(draftKey);
+    return { classId: "", topic: "", transcript: "" };
+  }
+}
 
-export function ReflectionWorkflow({ classes, initialClassId, initialMode = "voice", onClose, onSaved }: Props) {
+export function ReflectionWorkflow({ classes, locale, initialClassId, initialMode = "voice", onClose, onSaved, onPulseSaved }: Props) {
+  const [initialDraft] = useState(readDraft);
   const [stage, setStage] = useState<"record" | "review" | "diagnose" | "rescue">(initialMode === "text" ? "review" : "record");
-  const [classId, setClassId] = useState(initialClassId || classes[0]?.id || "");
-  const [topic, setTopic] = useState("");
-  const [transcript, setTranscript] = useState("");
+  const [classId, setClassId] = useState(initialClassId || (initialDraft.classId && classes.some((item) => item.id === initialDraft.classId) ? initialDraft.classId : classes[0]?.id || ""));
+  const [topic, setTopic] = useState(initialDraft.topic || "");
+  const [transcript, setTranscript] = useState(initialDraft.transcript || "");
   const [analysis, setAnalysis] = useState<ReflectionAnalysis | null>(null);
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [recording, setRecording] = useState(false);
@@ -22,6 +36,10 @@ export function ReflectionWorkflow({ classes, initialClassId, initialMode = "voi
   const [audioUrl, setAudioUrl] = useState("");
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState("");
+  const [pulseUnderstanding, setPulseUnderstanding] = useState<"" | "strong" | "mixed" | "needs_support">("");
+  const [pulseEngagement, setPulseEngagement] = useState<"high" | "mixed" | "low">("mixed");
+  const [pulseEnergy, setPulseEnergy] = useState<"high" | "normal" | "low">("normal");
+  const [idempotencyKey] = useState(() => crypto.randomUUID());
   const recorder = useRef<MediaRecorder | null>(null);
   const speech = useRef<SpeechLike | null>(null);
   const stream = useRef<MediaStream | null>(null);
@@ -34,6 +52,10 @@ export function ReflectionWorkflow({ classes, initialClassId, initialMode = "voi
     stream.current?.getTracks().forEach((track) => track.stop());
     speech.current?.stop();
   }, []);
+
+  useEffect(() => {
+    localStorage.setItem(draftKey, JSON.stringify({ classId, topic, transcript }));
+  }, [classId, topic, transcript]);
 
   async function startRecording() {
     if (!classId) return setNotice("Tambah atau pilih kelas dahulu.");
@@ -57,7 +79,7 @@ export function ReflectionWorkflow({ classes, initialClassId, initialMode = "voi
       const Voice = voiceWindow.SpeechRecognition || voiceWindow.webkitSpeechRecognition;
       if (Voice) {
         const recognition = new Voice();
-        recognition.lang = "ms-MY";
+        recognition.lang = speechLocale(locale);
         recognition.continuous = true;
         recognition.interimResults = true;
         let finalText = transcript;
@@ -108,43 +130,47 @@ export function ReflectionWorkflow({ classes, initialClassId, initialMode = "voi
 
   async function save() {
     if (!analysis || !selectedClass) return;
-    setBusy(true); setNotice("");
-    const supabase = createSupabaseBrowserClient();
+    setBusy(true);
+    setNotice("");
+
     try {
-      const { data: auth } = await supabase.auth.getUser();
-      if (!auth.user) throw new Error("Sesi tamat. Log masuk semula.");
-      const { data: saved, error } = await supabase.from("reflections").insert({
-        class_id: classId, teacher_id: auth.user.id, transcript: transcript.trim(), subject: selectedClass.subject,
-        topic: topic.trim() || null, class_summary: analysis.summary, analysis, status: "confirmed",
-      }).select("id, recorded_at").single();
-      if (error) throw error;
-      const answerRows = analysis.diagnosticQuestions.map((question) => ({
-        reflection_id: saved.id, teacher_id: auth.user!.id, question_id: question.id, question: question.question,
-        options: question.options, answer: answers[question.id] || "Tidak pasti",
-      }));
-      if (answerRows.length) {
-        const { error: answerError } = await supabase.from("diagnostic_answers").insert(answerRows);
-        if (answerError) throw answerError;
-      }
-      const plan = analysis.lessonRescue;
-      const { data: savedPlan, error: planError } = await supabase.from("lesson_rescues").insert({
-        reflection_id: saved.id, teacher_id: auth.user.id, title: `Lesson Rescue: ${topic.trim() || selectedClass.subject}`,
-        duration_minutes: plan.durationMinutes, target_students: "Berdasarkan refleksi guru", objective: plan.objective,
-        materials: plan.materials, steps: plan.steps, alternative_explanation: plan.alternativeExplanation,
-        exit_questions: plan.exitQuestions, confirmed: true,
-      }).select("id, title").single();
-      if (planError) throw planError;
-      onSaved({
-        id: saved.id, class_id: classId, transcript: transcript.trim(), subject: selectedClass.subject, topic: topic.trim() || null,
-        class_summary: analysis.summary, analysis, status: "confirmed", recorded_at: saved.recorded_at,
-        diagnostic_answers: answerRows.map((row, i) => ({ id: `answer-${i}`, question_id: row.question_id, question: row.question, answer: row.answer })),
-        lesson_rescues: [{ id: savedPlan.id, title: savedPlan.title, duration_minutes: plan.durationMinutes, objective: plan.objective,
-          materials: plan.materials, steps: plan.steps, alternative_explanation: plan.alternativeExplanation,
-          exit_questions: plan.exitQuestions, confirmed: true, intervention_outcomes: [] }],
+      const response = await fetch("/api/reflections", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          classId,
+          transcript: transcript.trim(),
+          topic: topic.trim(),
+          analysis,
+          diagnosticAnswers: answers,
+          idempotencyKey,
+        }),
       });
+      const result = await response.json() as { reflection?: ReflectionRecord; error?: string };
+      if (!response.ok || !result.reflection) {
+        throw new Error(result.error || "Refleksi tidak dapat disimpan.");
+      }
+
+      if (pulseUnderstanding) {
+        const supabase = createSupabaseBrowserClient();
+        const { data: auth } = await supabase.auth.getUser();
+        if (!auth.user) throw new Error("Refleksi disimpan, tetapi sesi Pulse telah tamat.");
+        const { data: pulse, error: pulseError } = await supabase.from("class_pulses").insert({
+          teacher_id: auth.user.id, class_id: classId, reflection_id: result.reflection.id,
+          understanding: pulseUnderstanding, engagement: pulseEngagement, energy_level: pulseEnergy,
+        }).select("id, class_id, understanding, engagement, energy_level, note, observed_at").single();
+        if (pulseError || !pulse) throw new Error(pulseError?.message || "Refleksi disimpan, tetapi Pulse tidak dapat disimpan.");
+        onPulseSaved(pulse as ClassPulse);
+      }
+
+      localStorage.removeItem(draftKey);
+      onSaved(result.reflection);
       onClose();
-    } catch (error) { setNotice(error instanceof Error ? error.message : "Refleksi tidak dapat disimpan."); }
-    finally { setBusy(false); }
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : "Refleksi tidak dapat disimpan.");
+    } finally {
+      setBusy(false);
+    }
   }
 
   const clock = `${String(Math.floor(seconds / 60)).padStart(2, "0")}:${String(seconds % 60).padStart(2, "0")}`;
@@ -158,6 +184,7 @@ export function ReflectionWorkflow({ classes, initialClassId, initialMode = "voi
     </div>}
     {stage === "review" && <div className="workflow-body">
       <div className="two-fields"><label className="form-field"><span>Kelas</span><select value={classId} onChange={(e) => setClassId(e.target.value)}>{classes.map((item) => <option key={item.id} value={item.id}>{item.class_name} · {item.subject}</option>)}</select></label><label className="form-field"><span>Topik</span><input value={topic} onChange={(e) => setTopic(e.target.value)} placeholder="Contoh: Pecahan" /></label></div>
+      <div className="template-strip"><span>Mulakan dengan templat:</span>{reflectionTemplates.map((template) => <button type="button" className="choice" key={template.id} onClick={() => { setTopic(template.topic); setTranscript(template.transcript); }}>{template.label}</button>)}</div>
       {audioUrl && <audio className="audio-preview" src={audioUrl} controls />}
       <label className="form-field"><span>Transkrip — semak dan betulkan</span><textarea rows={9} value={transcript} onChange={(e) => setTranscript(e.target.value)} placeholder="Apa yang diajar, difahami dan masih mengelirukan?" /></label>
       <div className="modal-actions"><button className="secondary-button" onClick={() => setStage("record")}>Kembali</button><button className="primary-button" disabled={busy} onClick={analyze}>{busy ? "Menganalisis…" : "Analisis refleksi →"}</button></div>
@@ -170,6 +197,7 @@ export function ReflectionWorkflow({ classes, initialClassId, initialMode = "voi
       <label className="form-field"><span>Ringkasan kelas</span><textarea rows={3} value={analysis.summary} onChange={(e) => patchAnalysis({ summary: e.target.value })} /></label>
       <div className="result-grid"><section className="result-card"><span className="eyebrow">ISU PEMBELAJARAN</span>{analysis.learningIssues.map((issue, index) => <div className="editable-issue" key={index}><input value={issue.title} onChange={(e) => patchAnalysis({ learningIssues: analysis.learningIssues.map((item, i) => i === index ? { ...item, title: e.target.value } : item) })} /><textarea rows={2} value={issue.description} onChange={(e) => patchAnalysis({ learningIssues: analysis.learningIssues.map((item, i) => i === index ? { ...item, description: e.target.value } : item) })} /></div>)}</section>
       <section className="result-card accent"><span className="eyebrow">LESSON RESCUE · {analysis.lessonRescue.durationMinutes} MINIT</span><label className="form-field"><span>Objektif</span><textarea rows={2} value={analysis.lessonRescue.objective} onChange={(e) => patchAnalysis({ lessonRescue: { ...analysis.lessonRescue, objective: e.target.value } })} /></label><ol>{analysis.lessonRescue.steps.map((step) => <li key={step.title}><b>{step.title}</b> ({step.durationMinutes} minit) — {step.instruction}</li>)}</ol><label className="form-field"><span>Penerangan alternatif</span><textarea rows={3} value={analysis.lessonRescue.alternativeExplanation} onChange={(e) => patchAnalysis({ lessonRescue: { ...analysis.lessonRescue, alternativeExplanation: e.target.value } })} /></label></section></div>
+      <fieldset className="pulse-group"><legend>Pulse kelas (pilihan)</legend><p className="muted-copy">Pilih atau ubah keadaan kelas sebelum refleksi disahkan.</p><div>{([['strong', 'Hijau — lancar'], ['mixed', 'Kuning — bercampur'], ['needs_support', 'Merah — perlu bantuan']] as const).map(([value, label]) => <button type="button" key={value} className={pulseUnderstanding === value ? "choice active" : "choice"} onClick={() => setPulseUnderstanding(value)}>{label}</button>)}</div>{pulseUnderstanding && <><div style={{ marginTop: 10 }}><span className="eyebrow">Penglibatan</span>{([['high', 'Tinggi'], ['mixed', 'Bercampur'], ['low', 'Rendah']] as const).map(([value, label]) => <button type="button" key={value} className={pulseEngagement === value ? "choice active" : "choice"} onClick={() => setPulseEngagement(value)}>{label}</button>)}</div><div style={{ marginTop: 8 }}><span className="eyebrow">Tenaga</span>{([['high', 'Tinggi'], ['normal', 'Biasa'], ['low', 'Rendah']] as const).map(([value, label]) => <button type="button" key={value} className={pulseEnergy === value ? "choice active" : "choice"} onClick={() => setPulseEnergy(value)}>{label}</button>)}</div></>}</fieldset>
       <div className="modal-actions"><button className="secondary-button" onClick={() => setStage("diagnose")}>Kembali</button><button className="primary-button" disabled={busy} onClick={save}>{busy ? "Menyimpan…" : "Simpan refleksi & pelan ✓"}</button></div>
     </div>}
     {notice && <p className="workflow-notice">{notice}</p>}
