@@ -68,7 +68,6 @@ export function DashboardApp({ initialData }: { initialData: DashboardData }) {
   const searchReflections = reflections.filter((item) => `${item.topic || ""} ${item.subject || ""} ${item.transcript} ${item.class_summary || ""}`.toLocaleLowerCase("ms-MY").includes(lowerQuery));
 
   useEffect(() => {
-    if ("serviceWorker" in navigator) void navigator.serviceWorker.register("/sw.js");
     const handleShortcut = (event: KeyboardEvent) => {
       if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k") { event.preventDefault(); setSearch(true); }
       if (event.key === "Escape") { setSearch(false); setNotifications(false); }
