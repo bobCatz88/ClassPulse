@@ -7,6 +7,7 @@ import { analyzeReflectionWithOpenAI } from "@/features/reflections/openai-analy
 import type { ApiErrorResponse } from "@/features/reflections/types";
 import { AuthenticationError, requireAuthenticatedUser } from "@/server/auth/require-user";
 import { checkRateLimit } from "@/server/http/rate-limit";
+import { createRequestId, errorLogMeta, logger, requestLogMeta } from "@/server/logging/logger";
 
 const MAX_REQUEST_BYTES = MAX_TRANSCRIPT_LENGTH * 4;
 
@@ -20,8 +21,10 @@ export const runtime = "nodejs";
  */
 export async function POST(request: Request): Promise<Response> {
   const startedAt = Date.now();
-  const requestId = crypto.randomUUID();
+  const requestId = createRequestId();
   let status = 500;
+
+  logger.info("Permintaan HTTP diterima", { event: "http.request", ...requestLogMeta(request, requestId) });
 
   try {
     const contentLength = Number(request.headers.get("content-length"));
@@ -94,10 +97,7 @@ export async function POST(request: Request): Promise<Response> {
       status = 200;
       return analysisResponse(analysis, "openai", requestId);
     } catch (error) {
-      console.error("[ClassPulse] reflection.openai_fallback", {
-        requestId,
-        message: error instanceof Error ? error.message : "Ralat tidak diketahui",
-      });
+      logger.warn("Fallback analisis demo digunakan", { event: "reflection.openai_fallback", requestId, ...errorLogMeta(error) });
       status = 200;
       return analysisResponse(
         createDemoReflectionAnalysis(analysisRequest),
@@ -111,18 +111,11 @@ export async function POST(request: Request): Promise<Response> {
       return errorResponse("Sesi tamat. Log masuk semula.", status, requestId);
     }
 
-    console.error("[ClassPulse] reflection.analyze_failed", {
-      requestId,
-      message: error instanceof Error ? error.message : "Ralat tidak diketahui",
-    });
+    logger.error("Analisis refleksi gagal", { event: "reflection.analyze_failed", requestId, ...errorLogMeta(error) });
     status = 500;
     return errorResponse("Analisis tidak dapat dijalankan buat masa ini.", status, requestId);
   } finally {
-    console.info("[ClassPulse] reflection.analyze", {
-      requestId,
-      status,
-      durationMs: Date.now() - startedAt,
-    });
+    logger.info("Permintaan analisis refleksi selesai", { event: "reflection.analyze", requestId, status, durationMs: Date.now() - startedAt });
   }
 }
 

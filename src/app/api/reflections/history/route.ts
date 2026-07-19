@@ -3,23 +3,31 @@ import { NextRequest, NextResponse } from "next/server";
 import { reflectionHistoryQuerySchema } from "@/features/reflections/schemas";
 import { requireAuthenticatedUser, AuthenticationError } from "@/server/auth/require-user";
 import { checkRateLimit } from "@/server/http/rate-limit";
+import { createRequestId, errorLogMeta, logger, requestLogMeta } from "@/server/logging/logger";
 import { createSupabaseServerClient } from "@/server/supabase/server";
 
 export async function GET(request: NextRequest) {
-  const requestId = crypto.randomUUID();
+  const startedAt = Date.now();
+  const requestId = createRequestId();
+  let status = 500;
+  logger.info("Permintaan HTTP diterima", { event: "http.request", ...requestLogMeta(request, requestId) });
 
   try {
     const { user } = await requireAuthenticatedUser();
     const rate = checkRateLimit(`reflection-history:${user.id}`, { limit: 60, windowMs: 60_000 });
     if (!rate.allowed) {
-      return NextResponse.json({ error: "Terlalu banyak permintaan. Cuba sebentar lagi." }, { status: 429, headers: { "x-request-id": requestId, "retry-after": String(rate.retryAfterSeconds) } });
+      status = 429;
+      return NextResponse.json({ error: "Terlalu banyak permintaan. Cuba sebentar lagi." }, { status, headers: { "x-request-id": requestId, "retry-after": String(rate.retryAfterSeconds) } });
     }
 
     const query = reflectionHistoryQuerySchema.safeParse({
       before: request.nextUrl.searchParams.get("before") ?? undefined,
       limit: request.nextUrl.searchParams.get("limit") ?? undefined,
     });
-    if (!query.success) return NextResponse.json({ error: "Parameter sejarah tidak sah." }, { status: 400, headers: { "x-request-id": requestId } });
+    if (!query.success) {
+      status = 400;
+      return NextResponse.json({ error: "Parameter sejarah tidak sah." }, { status, headers: { "x-request-id": requestId } });
+    }
 
     const supabase = await createSupabaseServerClient();
     let reflectionsQuery = supabase
@@ -33,10 +41,17 @@ export async function GET(request: NextRequest) {
     if (error) throw error;
 
     const hasMore = (data?.length ?? 0) > query.data.limit;
+    status = 200;
     return NextResponse.json({ reflections: (data ?? []).slice(0, query.data.limit), hasMore }, { headers: { "x-request-id": requestId } });
   } catch (error) {
-    if (error instanceof AuthenticationError) return NextResponse.json({ error: "Sila log masuk semula." }, { status: 401, headers: { "x-request-id": requestId } });
-    console.error(JSON.stringify({ event: "reflection_history_failed", requestId, message: error instanceof Error ? error.message : "unknown" }));
-    return NextResponse.json({ error: "Sejarah refleksi tidak dapat dimuatkan." }, { status: 500, headers: { "x-request-id": requestId } });
+    if (error instanceof AuthenticationError) {
+      status = 401;
+      return NextResponse.json({ error: "Sila log masuk semula." }, { status, headers: { "x-request-id": requestId } });
+    }
+    logger.error("Sejarah refleksi gagal", { event: "reflection.history_failed", requestId, ...errorLogMeta(error) });
+    status = 500;
+    return NextResponse.json({ error: "Sejarah refleksi tidak dapat dimuatkan." }, { status, headers: { "x-request-id": requestId } });
+  } finally {
+    logger.info("Permintaan sejarah refleksi selesai", { event: "reflection.history", requestId, status, durationMs: Date.now() - startedAt });
   }
 }

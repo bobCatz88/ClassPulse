@@ -4,6 +4,7 @@ import { saveReflectionRequestSchema } from "@/features/reflections/schemas";
 import type { ApiErrorResponse } from "@/features/reflections/types";
 import { AuthenticationError, requireAuthenticatedUser } from "@/server/auth/require-user";
 import { checkRateLimit } from "@/server/http/rate-limit";
+import { createRequestId, errorLogMeta, logger, requestLogMeta } from "@/server/logging/logger";
 
 export const runtime = "nodejs";
 
@@ -18,8 +19,10 @@ type SaveBundleResult = {
 /** Simpan refleksi, jawapan diagnosis dan Lesson Rescue sebagai satu transaksi. */
 export async function POST(request: Request): Promise<Response> {
   const startedAt = Date.now();
-  const requestId = crypto.randomUUID();
+  const requestId = createRequestId();
   let status = 500;
+
+  logger.info("Permintaan HTTP diterima", { event: "http.request", ...requestLogMeta(request, requestId) });
 
   try {
     const contentLength = Number(request.headers.get("content-length"));
@@ -122,18 +125,11 @@ export async function POST(request: Request): Promise<Response> {
       return errorResponse("Sesi tamat. Log masuk semula.", status, requestId);
     }
 
-    console.error("[ClassPulse] reflection.save_failed", {
-      requestId,
-      message: error instanceof Error ? error.message : "Ralat tidak diketahui",
-    });
+    logger.error("Simpan refleksi gagal", { event: "reflection.save_failed", requestId, ...errorLogMeta(error) });
     status = 500;
     return errorResponse("Refleksi tidak dapat disimpan buat masa ini.", status, requestId);
   } finally {
-    console.info("[ClassPulse] reflection.save", {
-      requestId,
-      status,
-      durationMs: Date.now() - startedAt,
-    });
+    logger.info("Permintaan simpan refleksi selesai", { event: "reflection.save", requestId, status, durationMs: Date.now() - startedAt });
   }
 }
 
